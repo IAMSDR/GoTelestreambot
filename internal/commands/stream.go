@@ -76,32 +76,9 @@ func sendLink(ctx *ext.Context, u *ext.Update) error {
 		ctx.Reply(u, fmt.Sprintf("Error - %s", err.Error()), nil)
 		return dispatcher.EndGroups
 	}
-	fullHash := utils.PackFile(
-		file.FileName,
-		file.FileSize,
-		file.MimeType,
-		file.ID,
-	)
-	hash := utils.GetShortHash(fullHash)
-	link := fmt.Sprintf("%s/stream/%d?hash=%s", config.ValueOf.Host, messageID, hash)
+	fileName := file.FileName
+	link := fmt.Sprintf("FileID - %d\nFileName - %s",messageID,fileName)
 	text := []styling.StyledTextOption{styling.Code(link)}
-	row := tg.KeyboardButtonRow{
-		Buttons: []tg.KeyboardButtonClass{
-			&tg.KeyboardButtonURL{
-				Text: "Download",
-				URL:  link + "&d=true",
-			},
-		},
-	}
-	if strings.Contains(file.MimeType, "video") || strings.Contains(file.MimeType, "audio") || strings.Contains(file.MimeType, "pdf") {
-		row.Buttons = append(row.Buttons, &tg.KeyboardButtonURL{
-			Text: "Stream",
-			URL:  link,
-		})
-	}
-	markup := &tg.ReplyInlineMarkup{
-		Rows: []tg.KeyboardButtonRow{row},
-	}
 	if strings.Contains(link, "http://localhost") {
 		_, err = ctx.Reply(u, text, &ext.ReplyOpts{
 			NoWebpage:        false,
@@ -109,7 +86,6 @@ func sendLink(ctx *ext.Context, u *ext.Update) error {
 		})
 	} else {
 		_, err = ctx.Reply(u, text, &ext.ReplyOpts{
-			Markup:           markup,
 			NoWebpage:        false,
 			ReplyToMessageId: u.EffectiveMessage.ID,
 		})

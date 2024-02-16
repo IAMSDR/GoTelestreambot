@@ -19,7 +19,7 @@ var log *zap.Logger
 func (e *allRoutes) LoadHome(r *Route) {
 	log = e.log.Named("Stream")
 	defer log.Info("Loaded stream route")
-	r.Engine.GET("/stream/:messageID", getStreamRoute)
+	r.Engine.GET("/stream/:messageID/:fileName", getStreamRoute)
 }
 
 func getStreamRoute(ctx *gin.Context) {
@@ -32,13 +32,6 @@ func getStreamRoute(ctx *gin.Context) {
 		http.Error(w, err.Error(), http.StatusBadRequest)
 		return
 	}
-
-	authHash := ctx.Query("hash")
-	if authHash == "" {
-		http.Error(w, "missing hash param", http.StatusBadRequest)
-		return
-	}
-
 	ctx.Header("Accept-Ranges", "bytes")
 	var start, end int64
 	rangeHeader := r.Header.Get("Range")
@@ -48,17 +41,6 @@ func getStreamRoute(ctx *gin.Context) {
 	file, err := utils.FileFromMessage(ctx, worker.Client, messageID)
 	if err != nil {
 		http.Error(w, err.Error(), http.StatusBadRequest)
-		return
-	}
-
-	expectedHash := utils.PackFile(
-		file.FileName,
-		file.FileSize,
-		file.MimeType,
-		file.ID,
-	)
-	if !utils.CheckHash(authHash, expectedHash) {
-		http.Error(w, "invalid hash", http.StatusBadRequest)
 		return
 	}
 
