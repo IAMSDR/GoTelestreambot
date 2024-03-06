@@ -19,13 +19,25 @@ var log *zap.Logger
 func (e *allRoutes) LoadHome(r *Route) {
 	log = e.log.Named("Stream")
 	defer log.Info("Loaded stream route")
-	r.Engine.GET("/stream/:messageID/:fileName", getStreamRoute)
+	r.Engine.GET("/stream/:messageID/:expire/:fileName", getStreamRoute)
 }
 
 func getStreamRoute(ctx *gin.Context) {
 	w := ctx.Writer
 	r := ctx.Request
 
+	expireParam := ctx.Param("expire")
+	isExpired, err := utils.CheckExpired(expireParam)
+	if err != nil {
+		http.Error(w, err.Error(), http.StatusBadRequest)
+		return
+	}
+	log.Info("without error")
+	if isExpired {
+		http.Error(w, "Link Expired !!!", http.StatusBadRequest)
+		return
+	}
+	log.Info("after is expired")
 	messageIDParm := ctx.Param("messageID")
 	messageID, err := strconv.Atoi(messageIDParm)
 	if err != nil {

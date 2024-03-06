@@ -5,9 +5,14 @@ import (
 	"EverythingSuckz/fsb/internal/cache"
 	"EverythingSuckz/fsb/internal/types"
 	"context"
+	"crypto/aes"
+	"crypto/cipher"
+	"encoding/base64"
 	"errors"
 	"fmt"
 	"math/rand"
+	"strconv"
+	"time"
 
 	"github.com/celestix/gotgproto"
 	"github.com/celestix/gotgproto/ext"
@@ -154,4 +159,61 @@ func ForwardMessages(ctx *ext.Context, fromChatId, toChatId int64, messageID int
 		return nil, err
 	}
 	return update.(*tg.Updates), nil
+}
+
+func Unpad(data []byte) ([]byte, error) {
+	length := len(data)
+	if length == 0 {
+		return nil, errors.New("data is empty")
+	}
+
+	unpadding := int(data[length-1])
+	if unpadding > length {
+		return nil, errors.New("invalid padding")
+	}
+
+	return data[:length-unpadding], nil
+}
+
+func AesDecrypt(key, data string) (string, error) {
+	cipherText, err := base64.StdEncoding.DecodeString(data)
+	if err != nil {
+		return "", err
+	}
+
+	block, err := aes.NewCipher([]byte(key))
+	if err != nil {
+		return "", err
+	}
+
+	if len(cipherText) < aes.BlockSize {
+		return "", errors.New("ciphertext too short")
+	}
+	iv := cipherText[:aes.BlockSize]
+	cipherText = cipherText[aes.BlockSize:]
+
+	mode := cipher.NewCBCDecrypter(block, iv)
+	mode.CryptBlocks(cipherText, cipherText)
+
+	plainText, err := Unpad(cipherText)
+	if err != nil {
+		return "", err
+	}
+	return string(plainText), nil
+}
+
+func CheckExpired(rawExpireTime string) (bool, error) {
+	timeNow := time.Now().Unix()
+	expireTimeString, err := AesDecrypt(config.ValueOf.Secret, rawExpireTime)
+	if err != nil {
+		return true, err
+	}
+	expireTime, err := strconv.ParseInt(expireTimeString, 10, 64)
+	if err != nil {
+		return true, err
+	}
+	if timeNow > expireTime {
+		return true, nil
+	}
+	return false, nil
 }
